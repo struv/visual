@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cosmic Nebula — Visual</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0a0512">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: #0a0512; overflow: hidden; }
+    .ascii-art {
+      font-size: 14px;
+      line-height: 1.15;
+      color: #9966cc;
+      text-shadow: 0 0 8px rgba(153, 102, 204, 0.3);
+    }
+    .back-link { color: #2a1a3a; }
+    .back-link:hover { color: #6a4a8a; }
+    .info { color: #3a2a4a; }
+    .info summary { border-color: #2a1a3a; }
+    .info summary:hover { border-color: #4a3a5a; color: #5a4a6a; }
+    .info-content {
+      background: rgba(10, 5, 18, 0.95);
+      border-color: #1a1020;
+      color: #5a4a6a;
+    }
+    .info-content code { color: #9966cc; }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">&larr; back</a>
+  <details class="info">
+    <summary>?</summary>
+    <div class="info-content">
+      <p>65x32 procedural cosmic nebula:</p>
+      <ul>
+        <li>Spiral arms: polar density <code>exp(-angleDiff) * exp(-r)</code></li>
+        <li>Gas clouds: layered noise <code>sin(x*f + t) * cos(y*f)</code></li>
+        <li>Stars: random with twinkle <code>sin(t*speed + phase)</code></li>
+        <li>Core: pulsing radius with ring distortion</li>
+        <li>Supernovae: expanding radial flares</li>
+      </ul>
+    </div>
+  </details>
+  <main>
+    <pre id="canvas" class="ascii-art"></pre>
+  </main>
+  <script>
+    const W = 65, H = 32;
+    let t = 0, flares = [], stars = [];
+
+    function noise(x, y, seed = 0) {
+      return (Math.sin(x * 0.3 + seed) * Math.cos(y * 0.4 + seed * 0.7) + Math.sin((x + y) * 0.2 + seed * 1.3)) / 2;
+    }
+    function smoothNoise(x, y, t, scale = 0.1) {
+      return (noise(x * scale, y * scale, t * 0.05) + 1) / 2;
+    }
+    function densityChar(d) {
+      if (d > 0.9) return '@';
+      if (d > 0.75) return '#';
+      if (d > 0.6) return '%';
+      if (d > 0.45) return '*';
+      if (d > 0.3) return '+';
+      if (d > 0.15) return '.';
+      return ' ';
+    }
+    function starChar(brightness, twinkle) {
+      if (brightness > 0.9) return Math.random() > 0.5 ? (twinkle > 0.5 ? '*' : '.') : (twinkle > 0.5 ? '+' : '*');
+      if (brightness > 0.6) return twinkle > 0.3 ? '*' : '+';
+      if (brightness > 0.3) return twinkle > 0.4 ? '+' : '.';
+      return '.';
+    }
+    function spiralDensity(x, y, cx, cy, t, arms = 3) {
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      if (r < 0.1) return 0.3;
+      const theta = Math.atan2(dy, dx) - t * 0.1;
+      let armDensity = 0;
+      for (let arm = 0; arm < arms; arm++) {
+        const armAngle = arm * (2 * Math.PI / arms);
+        const expectedTheta = armAngle + r * 0.3;
+        const angleDiff = Math.abs(Math.sin(theta - expectedTheta));
+        armDensity += Math.exp(-angleDiff * 3) * Math.exp(-r * 0.05);
+      }
+      return Math.min(armDensity, 1.0);
+    }
+
+    // Initialize stars
+    for (let i = 0; i < 80; i++) {
+      stars.push({
+        x: Math.floor(Math.random() * W),
+        y: Math.floor(Math.random() * H),
+        brightness: 0.2 + Math.random() * 0.8,
+        twinkleSpeed: 0.5 + Math.random() * 1.5
+      });
+    }
+
+    function render() {
+      const canvas = Array.from({length: H}, () => Array(W).fill(' '));
+      const cx = Math.floor(W / 2), cy = Math.floor(H / 2);
+
+      // Background stars
+      for (const star of stars) {
+        const twinkle = (Math.sin(t * star.twinkleSpeed + star.x * 0.5 + star.y * 0.3) + 1) / 2;
+        const effectiveBrightness = star.brightness * (0.5 + twinkle * 0.5);
+        if (effectiveBrightness > 0.3) canvas[star.y][star.x] = starChar(effectiveBrightness, twinkle);
+      }
+
+      // Nebula gas clouds
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const r = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+          const spDensity = spiralDensity(x, y, cx, cy, t, 2);
+          const cloudNoise = smoothNoise(x, y, t * 0.5, 0.15);
+          const expansion = Math.sin(t * 0.05) * 0.2 + 1.0;
+          let density = spDensity * cloudNoise * expansion * Math.exp(-r * 0.04);
+          if (density > 0.1) {
+            const char = densityChar(density);
+            if (char !== ' ') canvas[y][x] = char;
+          }
+        }
+      }
+
+      // Bright core
+      const coreRadius = 4 + Math.sin(t * 0.3);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const r = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+          if (r < coreRadius) {
+            const distort = Math.sin(t * 0.5 + r * 0.8) * 0.5 + 0.5;
+            if (r < coreRadius * 0.5) {
+              canvas[y][x] = distort > 0.7 ? '.' : ' ';
+            } else {
+              const ringBrightness = (1 - r / coreRadius) * distort;
+              if (ringBrightness > 0.5) canvas[y][x] = ['@', '#', '*'][Math.floor(Math.random() * 3)];
+              else if (ringBrightness > 0.2) canvas[y][x] = ['*', '+'][Math.floor(Math.random() * 2)];
+            }
+          }
+        }
+      }
+
+      // Supernova flares
+      if (Math.random() > 0.98) flares.push({x: 5 + Math.floor(Math.random() * (W - 10)), y: 5 + Math.floor(Math.random() * (H - 10)), age: 0});
+      flares = flares.filter(f => {
+        f.age += 0.2;
+        if (f.age >= 2) return false;
+        const radius = Math.floor(f.age * 3);
+        for (let dy = -radius; dy <= radius; dy++) {
+          for (let dx = -radius; dx <= radius; dx++) {
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d <= radius) {
+              const px = f.x + dx, py = f.y + dy;
+              if (px >= 0 && px < W && py >= 0 && py < H) {
+                const intensity = 1 - d / (radius + 1);
+                if (intensity > 0.7) canvas[py][px] = '@';
+                else if (intensity > 0.4) canvas[py][px] = '*';
+                else if (intensity > 0.1) canvas[py][px] = '+';
+              }
+            }
+          }
+        }
+        return true;
+      });
+
+      // Foreground stars
+      for (let i = 0; i < 5; i++) {
+        const sx = Math.floor(Math.random() * W), sy = Math.floor(Math.random() * H);
+        if (canvas[sy][sx] === ' ' && Math.random() > 0.7) canvas[sy][sx] = ['.', '*', '+'][Math.floor(Math.random() * 3)];
+      }
+
+      document.getElementById('canvas').textContent = canvas.map(r => r.join('')).join('\n');
+      t += 0.20;
+      requestAnimationFrame(render);
+    }
+    render();
+  </script>
+  <script src="widget.js"></script>
+</body>
+</html>

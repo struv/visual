@@ -1,0 +1,122 @@
+/* Visual — Shared Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0d0d0d;
+  color: #e0e0e0;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', 'Courier New', monospace;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  text-align: center;
+}
+
+.ascii-art {
+  font-size: clamp(0.5rem, 2vw, 1rem);
+  line-height: 1.2;
+  color: #fff;
+  margin: 0;
+}
+
+/* Back link - consistent across all pages */
+.back-link {
+  position: fixed;
+  top: 1.25rem;
+  left: 1.25rem;
+  color: #333;
+  text-decoration: none;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  transition: color 0.2s, transform 0.2s;
+  z-index: 1000;
+}
+
+.back-link:hover {
+  color: #666;
+  transform: translateX(-2px);
+}
+
+/* Info panel - consistent across all pages */
+.info {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  font-size: 0.7rem;
+  color: #444;
+  z-index: 1000;
+}
+
+.info summary {
+  cursor: pointer;
+  list-style: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid #222;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  transition: all 0.2s;
+}
+
+.info summary:hover {
+  border-color: #444;
+  color: #666;
+}
+
+.info summary::-webkit-details-marker {
+  display: none;
+}
+
+.info-content {
+  position: absolute;
+  bottom: 2.5rem;
+  right: 0;
+  width: 320px;
+  background: rgba(10, 10, 10, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid #1a1a1a;
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  color: #555;
+  line-height: 1.6;
+}
+
+.info-content p {
+  margin: 0;
+}
+
+.info-content ul {
+  margin: 0.75rem 0 0 1rem;
+  padding: 0;
+}
+
+.info-content li {
+  margin: 0.4rem 0;
+}
+
+.info-content code {
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}

@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#050505">
+  <meta name="description" content="Generative ASCII art gallery">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #050505;
+      color: #e0e0e0;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background canvas */
+    #ambient {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4rem 2rem;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 5rem;
+    }
+
+    .title {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      font-weight: 200;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+
+    .title::after {
+      content: '';
+      position: absolute;
+      bottom: -0.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #333, transparent);
+    }
+
+    .subtitle {
+      font-size: 0.75rem;
+      letter-spacing: 0.4em;
+      color: #444;
+      text-transform: lowercase;
+    }
+
+    /* Gallery grid */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    /* Individual piece card */
+    .piece {
+      position: relative;
+      aspect-ratio: 16 / 10;
+      background: #0a0a0a;
+      border: 1px solid #1a1a1a;
+      border-radius: 4px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    .piece:hover {
+      border-color: #333;
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .piece-preview {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.5rem;
+      line-height: 1.1;
+      color: var(--piece-color);
+      text-shadow: 0 0 10px var(--piece-glow);
+      opacity: 0.7;
+      transition: opacity 0.4s;
+    }
+
+    .piece:hover .piece-preview {
+      opacity: 1;
+    }
+
+    .piece-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 1.5rem;
+      background: linear-gradient(transparent, rgba(5, 5, 5, 0.95));
+    }
+
+    .piece-title {
+      font-size: 1rem;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+
+    .piece-desc {
+      font-size: 0.7rem;
+      color: #555;
+      letter-spacing: 0.05em;
+    }
+
+    .piece-link {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+    }
+
+    /* Individual piece colors */
+    .piece--fractal {
+      --piece-color: #c8f7c5;
+      --piece-glow: rgba(200, 247, 197, 0.3);
+    }
+
+    .piece--abyss {
+      --piece-color: #4a9eff;
+      --piece-glow: rgba(74, 158, 255, 0.3);
+    }
+
+    .piece--city {
+      --piece-color: #ff6ac1;
+      --piece-glow: rgba(255, 106, 193, 0.3);
+    }
+
+    .piece--nebula {
+      --piece-color: #9966cc;
+      --piece-glow: rgba(153, 102, 204, 0.3);
+    }
+
+    .piece--steampunk {
+      --piece-color: #b8860b;
+      --piece-glow: rgba(184, 134, 11, 0.3);
+    }
+
+    .piece--entity {
+      --piece-color: #ff66aa;
+      --piece-glow: rgba(255, 102, 170, 0.3);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 5rem;
+      text-align: center;
+    }
+
+    .footer-text {
+      font-size: 0.65rem;
+      color: #333;
+      letter-spacing: 0.3em;
+    }
+
+    /* Entrance animation */
+    body {
+      animation: fadeIn 0.8s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Piece glow on hover */
+    .piece--fractal:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(200, 247, 197, 0.1);
+    }
+    .piece--abyss:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(74, 158, 255, 0.1);
+    }
+    .piece--city:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 106, 193, 0.1);
+    }
+    .piece--nebula:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(153, 102, 204, 0.1);
+    }
+    .piece--steampunk:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(184, 134, 11, 0.1);
+    }
+    .piece--entity:hover {
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 102, 170, 0.1);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        padding: 3rem 1rem;
+      }
+
+      header {
+        margin-bottom: 3rem;
+      }
+
+      .gallery {
+        gap: 1.5rem;
+      }
+
+      .piece {
+        aspect-ratio: 4 / 3;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="ambient"></canvas>
+
+  <div class="container">
+    <header>
+      <h1 class="title">Visual</h1>
+      <p class="subtitle">generative ascii art</p>
+    </header>
+
+    <section class="gallery">
+      <article class="piece piece--fractal">
+        <pre class="piece-preview" id="preview-fractal"></pre>
+        <div class="piece-info">
+          <h2 class="piece-title">Fractal Organism</h2>
+          <p class="piece-desc">breathing geometry</p>
+        </div>
+        <a href="fractal.html" class="piece-link" aria-label="View Fractal Organism"></a>
+      </article>
+
+      <article class="piece piece--abyss">
+        <pre class="piece-preview" id="preview-abyss"></pre>
+        <div class="piece-info">
+          <h2 class="piece-title">Underwater Abyss</h2>
+          <p class="piece-desc">bioluminescent depths</p>
+        </div>
+        <a href="abyss.html" class="piece-link" aria-label="View Underwater Abyss"></a>
+      </article>
+
+      <article class="piece piece--city">
+        <pre class="piece-preview" id="preview-city"></pre>
+        <div class="piece-info">
+          <h2 class="piece-title">Cyber City</h2>
+          <p class="piece-desc">neon rain falling</p>
+        </div>
+        <a href="cybercity.html" class="piece-link" aria-label="View Cyber City"></a>
+      </article>
+
+      <article class="piece piece--nebula">
+        <pre class="piece-preview" id="preview-nebula"></pre>
+        <div class="piece-info">
+          <h2 class="piece-title">Cosmic Nebula</h2>
+          <p class="piece-desc">stellar dust spiraling</p>
+        </div>
+        <a href="nebula.html" class="piece-link" aria-label="View Cosmic Nebula"></a>
+      </article>
+
+      <article class="piece piece--steampunk">
+        <pre class="piece-preview" id="preview-steampunk"></pre>
+        <div class="piece-info">
+          <h2 class="piece-title">Steampunk Machinery</h2>
+          <p class="piece-desc">gears in motion</p>
+        </div>
+        <a href="steampunk.html" class="piece-link" aria-label="View Steampunk Machinery"></a>
+      </article>
+
+      <article class="piece piece--entity">
+        <pre class="piece-preview" id="preview-entity"></pre>
+        <div class="piece-info">
+          <h2 class="piece-title">Peak Breath</h2>
+          <p class="piece-desc">psychedelic fractal entity</p>
+        </div>
+        <a href="entity.html" class="piece-link" aria-label="View Peak Breath"></a>
+      </article>
+    </section>
+
+    <footer>
+      <p class="footer-text">click to enter</p>
+    </footer>
+  </div>
+
+  <script>
+    // Cache DOM references
+    const ambientCanvas = document.getElementById('ambient');
+    const ctx = ambientCanvas.getContext('2d');
+    const previews = {
+      fractal: document.getElementById('preview-fractal'),
+      abyss: document.getElementById('preview-abyss'),
+      city: document.getElementById('preview-city'),
+      nebula: document.getElementById('preview-nebula'),
+      steampunk: document.getElementById('preview-steampunk'),
+      entity: document.getElementById('preview-entity')
+    };
+
+    // Shared state
+    let time = 0;
+    let lastPreviewUpdate = 0;
+    const PREVIEW_INTERVAL = 50; // ~20fps for previews (vs 60fps for ambient)
+    const chars = ' .,-:;+*#%@';
+    const PW = 40, PH = 16; // Preview dimensions
+
+    // Pre-allocated buffers for grid-based previews
+    const cityGrid = Array.from({length: PH}, () => new Array(PW));
+    const steampunkGrid = Array.from({length: PH}, () => new Array(PW));
+
+    function resize() {
+      ambientCanvas.width = window.innerWidth;
+      ambientCanvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Preview renderers - return strings, don't touch DOM
+    function renderFractal(t) {
+      const buf = new Array(PH);
+      for (let y = 0; y < PH; y++) {
+        let row = '';
+        for (let x = 0; x < PW; x++) {
+          const cx = (x - PW/2) / (PW/4);
+          const cy = (y - PH/2) / (PH/4);
+          const r = Math.sqrt(cx*cx + cy*cy);
+          const theta = Math.atan2(cy, cx);
+          const val = Math.sin(5*theta + r*3 - t*2) * Math.exp(-r*0.4) +
+                      Math.sin(r*6 - t*1.5) * Math.exp(-r*0.3) * 0.7 +
+                      Math.exp(-r*r*0.8) * 0.8;
+          const norm = Math.max(0, Math.min(1, (val + 1.5) / 3));
+          row += chars[(norm * 10) | 0];
+        }
+        buf[y] = row;
+      }
+      return buf.join('\n');
+    }
+
+    function renderAbyss(t) {
+      const buf = new Array(PH);
+      for (let y = 0; y < PH; y++) {
+        let row = '';
+        const depth = y / PH;
+        const light = Math.max(0, 1 - depth * 1.3);
+        for (let x = 0; x < PW; x++) {
+          const wave = Math.sin(x * 0.3 + t * 2 + y * 0.2) * 0.3;
+          const val = light * 0.5 + wave * (1 - light);
+          const norm = Math.max(0, Math.min(1, val));
+          row += chars[(norm * 10) | 0];
+        }
+        buf[y] = row;
+      }
+      return buf.join('\n');
+    }
+
+    function renderCity(t) {
+      // Clear grid
+      for (let y = 0; y < PH; y++) cityGrid[y].fill(' ');
+      const streetY = PH - 3;
+
+      // Buildings (static structure, just windows animate)
+      const buildings = [[3, 6, 10], [12, 5, 8], [20, 7, 12], [30, 4, 7]];
+      for (const [bx, bw, bh] of buildings) {
+        for (let y = streetY - bh; y < streetY; y++) {
+          for (let dx = 0; dx < bw; dx++) {
+            const x = bx + dx;
+            if (x >= PW) continue;
+            if (dx === 0 || dx === bw - 1) cityGrid[y][x] = '|';
+            else if (y === streetY - bh) cityGrid[y][x] = '=';
+            else if (dx % 2 === 1 && y % 3 === 1 && Math.sin(t * 3 + x) > 0) cityGrid[y][x] = '#';
+          }
+        }
+      }
+
+      // Rain
+      for (let i = 0; i < 15; i++) {
+        const rx = ((i * 7 + t * 20) % PW) | 0;
+        const ry = ((t * 30 + i * 3) % PH) | 0;
+        if (cityGrid[ry][rx] === ' ') cityGrid[ry][rx] = ':';
+      }
+
+      return cityGrid.map(r => r.join('')).join('\n');
+    }
+
+    function renderNebula(t) {
+      const buf = new Array(PH);
+      const cx = PW / 2, cy = PH / 2;
+      for (let y = 0; y < PH; y++) {
+        let row = '';
+        for (let x = 0; x < PW; x++) {
+          const dx = x - cx, dy = y - cy;
+          const r = Math.sqrt(dx * dx + dy * dy);
+          const theta = Math.atan2(dy, dx) - t * 0.1;
+          const spiral = Math.sin(2 * theta + r * 0.3) * Math.exp(-r * 0.08);
+          const noise = Math.sin(x * 0.2 + t) * Math.cos(y * 0.3 + t * 0.5) * 0.3;
+          const core = Math.exp(-r * r * 0.02) * 0.5;
+          const val = spiral + noise + core;
+          const norm = Math.max(0, Math.min(1, (val + 0.5) / 1.5));
+          row += chars[(norm * 10) | 0];
+        }
+        buf[y] = row;
+      }
+      return buf.join('\n');
+    }
+
+    function renderSteampunk(t) {
+      // Clear and draw static elements
+      for (let y = 0; y < PH; y++) steampunkGrid[y].fill(' ');
+      for (let x = 0; x < PW; x++) { steampunkGrid[3][x] = '-'; steampunkGrid[12][x] = '-'; }
+      for (let y = 0; y < PH; y++) { steampunkGrid[y][8] = '|'; steampunkGrid[y][30] = '|'; }
+      steampunkGrid[3][8] = '+'; steampunkGrid[3][30] = '+';
+      steampunkGrid[12][8] = '+'; steampunkGrid[12][30] = '+';
+
+      // Gear 1
+      for (let i = 0; i < 16; i++) {
+        const theta = t * 0.5 + i * Math.PI / 8;
+        const x = (18 + 4 * Math.cos(theta)) | 0;
+        const y = (8 + 2 * Math.sin(theta)) | 0;
+        if (x >= 0 && x < PW && y >= 0 && y < PH) steampunkGrid[y][x] = i % 2 === 0 ? '#' : 'O';
+      }
+      steampunkGrid[8][18] = '@';
+
+      // Gear 2
+      for (let i = 0; i < 12; i++) {
+        const theta = -t * 0.65 + i * Math.PI / 6;
+        const x = (28 + 3 * Math.cos(theta)) | 0;
+        const y = (8 + 1.5 * Math.sin(theta)) | 0;
+        if (x >= 0 && x < PW && y >= 0 && y < PH) steampunkGrid[y][x] = i % 2 === 0 ? '%' : 'o';
+      }
+      steampunkGrid[8][28] = '*';
+
+      // Steam
+      for (let i = 0; i < 3; i++) {
+        const sx = (10 + (t * 5 + i * 7) % 5) | 0;
+        const sy = ((t * 8 + i * 3) % 3) | 0;
+        if (steampunkGrid[sy][sx] === ' ') steampunkGrid[sy][sx] = '~';
+      }
+
+      return steampunkGrid.map(r => r.join('')).join('\n');
+    }
+
+    function renderEntity(t) {
+      const buf = new Array(PH);
+      const cx = PW / 2, cy = PH / 2;
+      const entityChars = ' .·:;+*#@▓█';
+      const breath = 1 + 0.2 * Math.sin(t * 0.4);
+
+      for (let y = 0; y < PH; y++) {
+        let row = '';
+        for (let x = 0; x < PW; x++) {
+          const dx = (x - cx) / breath;
+          const dy = (y - cy) / breath * 2;
+          const r = Math.sqrt(dx * dx + dy * dy);
+          const theta = Math.atan2(dy, dx) + t * 0.15;
+
+          // Recursive spiral tentacles
+          const tentacles = Math.sin(6 * theta + r * 2 - t) * Math.exp(-r * 0.15);
+          // Pulsing core void
+          const core = Math.exp(-r * r * 0.12) * (1 + 0.4 * Math.sin(t * 2));
+          // Electric edges
+          const edge = Math.sin(r * 4 - t * 1.5) * Math.exp(-Math.abs(r - 4) * 0.5);
+          // Liquid symmetry
+          const liquid = Math.sin(theta * 4) * Math.sin(r * 3 - t) * Math.exp(-r * 0.2);
+
+          const val = tentacles + core * 1.5 + edge * 0.5 + liquid * 0.4;
+          const norm = Math.max(0, Math.min(1, (val + 1.5) / 3));
+          row += entityChars[(norm * 10) | 0];
+        }
+        buf[y] = row;
+      }
+      return buf.join('\n');
+    }
+
+    // Single unified animation loop
+    function animate(timestamp) {
+      // Ambient background runs every frame
+      const W = ambientCanvas.width;
+      const H = ambientCanvas.height;
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.fillStyle = '#151515';
+      const gridSize = 60;
+      for (let x = 0; x < W; x += gridSize) {
+        for (let y = 0; y < H; y += gridSize) {
+          const noise = Math.sin(x * 0.01 + time) * Math.cos(y * 0.01 + time * 0.7);
+          ctx.globalAlpha = (noise + 1) * 0.075;
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // Previews update at throttled rate
+      if (timestamp - lastPreviewUpdate > PREVIEW_INTERVAL) {
+        previews.fractal.textContent = renderFractal(time);
+        previews.abyss.textContent = renderAbyss(time);
+        previews.city.textContent = renderCity(time);
+        previews.nebula.textContent = renderNebula(time);
+        previews.steampunk.textContent = renderSteampunk(time);
+        previews.entity.textContent = renderEntity(time);
+        lastPreviewUpdate = timestamp;
+      }
+
+      time += 0.02;
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fractal Organism — Visual</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#000">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { background: #000; }
+    .ascii-art {
+      font-size: clamp(0.4rem, 1.2vw, 0.75rem);
+      line-height: 1.1;
+      color: #c8f7c5;
+      text-shadow: 0 0 8px rgba(200, 247, 197, 0.4);
+    }
+    .info-content code { color: #7a9f7a; }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">← back</a>
+  <details class="info">
+    <summary>?</summary>
+    <div class="info-content">
+      <p>70×35 grid, each character's brightness calculated per frame:</p>
+      <ul>
+        <li>Normalize coords to center, apply breathing scale, rotate by time</li>
+        <li>Convert to polar (r, θ) for spiral math</li>
+        <li>Layer effects: spiral arms <code>sin(5θ + 3r - 2t)</code>, pulsing rings <code>sin(6r - 1.5t)</code>, kaleidoscopic fold, recursive tendrils <code>sin(x + sin(y + t))</code>, deep zoom <code>sin(log(r) - t)</code>, center glow <code>exp(-r²)</code></li>
+        <li>Sum mapped to character density: <code>. , - : ; + * # % @ ░ ▒ ▓</code></li>
+      </ul>
+    </div>
+  </details>
+  <main>
+    <pre id="canvas" class="ascii-art"></pre>
+  </main>
+  <script>
+    const W = 70;
+    const H = 35;
+    const chars = ' .,-:;+*#%@░▒▓';
+
+    let time = 0;
+
+    function fractalValue(x, y, t) {
+      // Normalize coordinates to center
+      const cx = (x - W / 2) / (W / 4);
+      const cy = (y - H / 2) / (H / 4);
+
+      // Breathing effect
+      const breath = 1 + 0.15 * Math.sin(t * 0.5);
+      const bx = cx * breath;
+      const by = cy * breath;
+
+      // Rotation
+      const angle = t * 0.3;
+      const rx = bx * Math.cos(angle) - by * Math.sin(angle);
+      const ry = bx * Math.sin(angle) + by * Math.cos(angle);
+
+      // Polar coordinates for spiral effects
+      const r = Math.sqrt(rx * rx + ry * ry);
+      const theta = Math.atan2(ry, rx);
+
+      // Fractal layers
+      let val = 0;
+
+      // Swirling spiral arms
+      const arms = 5;
+      const spiral = Math.sin(arms * theta + r * 3 - t * 2) * Math.exp(-r * 0.4);
+      val += spiral;
+
+      // Pulsing rings
+      const rings = Math.sin(r * 6 - t * 1.5) * Math.exp(-r * 0.3);
+      val += rings * 0.7;
+
+      // Kaleidoscopic folding
+      const fold = Math.sin(theta * 6) * Math.sin(r * 4 - t) * Math.exp(-r * 0.5);
+      val += fold * 0.5;
+
+      // Recursive tendrils
+      const tendril1 = Math.sin(rx * 4 + Math.sin(ry * 3 + t)) * Math.exp(-r * 0.6);
+      const tendril2 = Math.sin(ry * 4 + Math.sin(rx * 3 - t * 0.7)) * Math.exp(-r * 0.6);
+      val += (tendril1 + tendril2) * 0.4;
+
+      // Deep zoom illusion - nested structure
+      const zoom = Math.sin(Math.log(r + 0.1) * 4 - t * 0.8) * Math.exp(-r * 0.2);
+      val += zoom * 0.3;
+
+      // Center glow
+      const glow = Math.exp(-r * r * 0.8) * (1 + 0.3 * Math.sin(t * 3));
+      val += glow * 0.8;
+
+      return val;
+    }
+
+    function render() {
+      let output = '';
+
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const val = fractalValue(x, y, time);
+
+          // Map value to character index
+          const normalized = (val + 2) / 4; // Rough normalization
+          const clamped = Math.max(0, Math.min(1, normalized));
+          const idx = Math.floor(clamped * (chars.length - 1));
+
+          output += chars[idx];
+        }
+        output += '\n';
+      }
+
+      document.getElementById('canvas').textContent = output;
+      time += 0.016;
+      requestAnimationFrame(render);
+    }
+
+    render();
+  </script>
+  <script src="widget.js"></script>
+</body>
+</html>

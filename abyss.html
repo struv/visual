@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Underwater Abyss — Visual</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#001">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #001;
+    }
+    main {
+      height: 100vh;
+      width: 100vw;
+    }
+    .ascii-art {
+      font-size: 14px;
+      line-height: 1.15;
+      color: #4a9eff;
+      text-shadow: 0 0 8px rgba(74, 158, 255, 0.3);
+    }
+    .back-link { color: #234; }
+    .back-link:hover { color: #468; }
+    .info { color: #345; }
+    .info summary { border-color: #234; }
+    .info summary:hover { border-color: #456; color: #567; }
+    .info-content {
+      background: rgba(0, 5, 15, 0.95);
+      border-color: #123;
+      color: #567;
+    }
+    .info-content code { color: #4a9eff; }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-link">&larr; back</a>
+  <details class="info">
+    <summary>?</summary>
+    <div class="info-content">
+      <p>Dynamic procedural underwater abyss:</p>
+      <ul>
+        <li>Kelp: damped wave equation <code>sin(t + i*0.4) * depth * damping</code></li>
+        <li>Coral: cellular automata growth with biolum pulses</li>
+        <li>Fish: path math with velocity vectors</li>
+        <li>Particles: Brownian motion random walks</li>
+        <li>Bubbles: rise with <code>sin(t*4)</code> wobble</li>
+        <li>Currents: global <code>sin(t*0.3)*2</code> drift</li>
+        <li>Light: surface gradient <code>1 - depth*1.2</code></li>
+      </ul>
+    </div>
+  </details>
+  <main>
+    <pre id="canvas" class="ascii-art"></pre>
+  </main>
+  <script>
+    const CHAR_WIDTH = 8.4;
+    const CHAR_HEIGHT = 16.1;
+    const chars = ' .,-~:;=*#%@░▒▓█';
+    let time = 0;
+    let W, H;
+    let coral, kelp, fish, particles, bubbles;
+
+    function calcDimensions() {
+      W = Math.floor(window.innerWidth / CHAR_WIDTH);
+      H = Math.floor(window.innerHeight / CHAR_HEIGHT);
+    }
+
+    function initState() {
+      coral = Array.from({length: H}, () => Array(W).fill(0));
+      const kelpCount = Math.max(6, Math.floor(W / 8));
+      kelp = Array.from({length: kelpCount}, () => ({x: 5 + Math.random()*(W-10), h: 8 + Math.random()*12}));
+      const fishCount = Math.max(4, Math.floor((W * H) / 400));
+      fish = Array.from({length: fishCount}, newFish);
+      const particleCount = Math.max(20, Math.floor((W * H) / 80));
+      particles = Array.from({length: particleCount}, () => [Math.random()*W, Math.random()*H]);
+      bubbles = [];
+
+      // Seed coral
+      const coralClusters = Math.max(4, Math.floor(W / 12));
+      for (let i = 0; i < coralClusters; i++) {
+        let x = 10 + Math.random()*(W-20), y = H - 8 + Math.random()*6;
+        for (let j = 0; j < 15 + Math.random()*25; j++) {
+          const ix = Math.floor(x), iy = Math.floor(y);
+          if (ix >= 0 && ix < W && iy >= 0 && iy < H) coral[iy][ix] = Math.min(coral[iy][ix]+1, 5);
+          x += [-1,0,0,1][Math.floor(Math.random()*4)];
+          y += [-1,0,0,1,1][Math.floor(Math.random()*5)];
+        }
+      }
+    }
+
+    function newFish() {
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      return {
+        x: Math.random()*W, y: 5 + Math.random()*(Math.max(10, H-15)),
+        vx: dir * (0.2 + Math.random()*0.6), vy: 0,
+        body: dir > 0 ? ['><>','<><','>->'][Math.floor(Math.random()*3)] : ['<><','><>','<-<'][Math.floor(Math.random()*3)]
+      };
+    }
+
+    calcDimensions();
+    initState();
+
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        calcDimensions();
+        initState();
+      }, 150);
+    });
+
+    function render() {
+      const grid = Array.from({length: H}, () => Array(W).fill(' '));
+      const current = Math.sin(time*0.3)*2 + Math.sin(time*0.7)*0.5;
+      const streetY = H - 5;
+
+      // Light gradient from surface
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const depth = y / H;
+          const light = Math.max(0, 1 - depth*1.2) * (0.8 + 0.2*Math.sin(time*0.5 + x*0.1));
+          if (light > 0.6) grid[y][x] = '.';
+          else if (light > 0.3 && Math.random() < 0.1) grid[y][x] = ',';
+        }
+      }
+
+      // Coral with bioluminescence
+      const coralChars = ' .;*#%@▒▓';
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          if (coral[y][x] > 0) {
+            const biolum = (Math.sin(time*2 + x*0.3 + y*0.2) + 1) / 2;
+            const idx = Math.min(coral[y][x] + Math.floor(biolum*2), coralChars.length-1);
+            grid[y][x] = coralChars[idx];
+          }
+        }
+      }
+
+      // Kelp swaying
+      for (const k of kelp) {
+        for (let i = 0; i < k.h; i++) {
+          const y = H - 2 - i;
+          const damping = 1 - (i / k.h) * 0.3;
+          const sway = Math.sin(time*1.5 + i*0.4) * (i/k.h) * 3 * damping;
+          const x = Math.floor(k.x + sway + current*0.3 + W) % W;
+          if (y >= 0 && y < H) {
+            let char = i % 3 === 0 ? '|' : (sway > 0 ? '/' : '\\');
+            if (Math.random() < 0.05) char = '*';
+            grid[y][x] = char;
+          }
+        }
+      }
+
+      // Particles (Brownian motion)
+      for (const p of particles) {
+        p[0] += (Math.random()-0.5) + current*0.15;
+        p[1] += (Math.random()-0.5)*0.6;
+        p[0] = ((p[0] % W) + W) % W;
+        p[1] = Math.max(0, Math.min(H-1, p[1]));
+        const px = Math.floor(p[0]), py = Math.floor(p[1]);
+        if (grid[py][px] === ' ') grid[py][px] = Math.random() > 0.3 ? '.' : ',';
+      }
+
+      // Fish
+      for (const f of fish) {
+        f.vy = Math.sin(time*2 + f.x*0.1) * 0.3;
+        f.x += f.vx + current*0.2;
+        f.y += f.vy;
+        f.y = Math.max(3, Math.min(Math.max(10, H-8), f.y));
+        if (f.x < -5 || f.x > W+5) { f.vx *= -1; f.body = f.vx > 0 ? '><>' : '<><'; }
+        if (Math.random() < 0.01) f.vy += (Math.random()-0.5);
+        const fx = Math.floor(f.x), fy = Math.floor(f.y);
+        for (let i = 0; i < f.body.length; i++) {
+          const nx = fx + i;
+          if (nx >= 0 && nx < W && fy >= 0 && fy < H && ' .,'.includes(grid[fy][nx])) {
+            grid[fy][nx] = f.body[i];
+          }
+        }
+      }
+
+      // Bubbles
+      if (Math.random() < 0.15) bubbles.push([5 + Math.random()*(W-10), H-1, 0.3 + Math.random()*0.5]);
+      bubbles = bubbles.filter(b => {
+        b[1] -= b[2];
+        b[0] += Math.sin(time*4 + b[0])*0.3 + current*0.1;
+        if (b[1] < 0) return false;
+        const bx = Math.floor(((b[0] % W) + W) % W), by = Math.floor(b[1]);
+        if (by >= 0 && by < H && ' .,'.includes(grid[by][bx])) {
+          grid[by][bx] = b[2] > 0.6 ? 'O' : b[2] > 0.4 ? 'o' : '°';
+        }
+        return true;
+      });
+
+      // Anemone tendrils
+      for (let y = H-6; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          if (coral[y][x] > 2 && y > 0 && grid[y-1][x] === ' ') {
+            const wave = Math.sin(time*3 + x*0.5);
+            if (Math.abs(wave) > 0.5) grid[y-1][x] = wave > 0 ? '~' : '-';
+          }
+        }
+      }
+
+      // Bioluminescent pulse (deep zone)
+      for (let y = Math.floor(H*2/3); y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const pulse = Math.sin(time*1.2 + x*0.15 + y*0.1);
+          if (pulse > 0.85 && grid[y][x] === ' ') {
+            grid[y][x] = pulse > 0.95 ? '●' : pulse > 0.9 ? '○' : '*';
+          }
+        }
+      }
+
+      // Pressure wave distortion (rare)
+      if (time % 12 < 0.1) {
+        const waveY = Math.floor((time % 12) / 0.1 * H) % H;
+        if (waveY >= 0 && waveY < H) {
+          const shift = 1 + Math.floor(Math.random()*2);
+          grid[waveY] = [...grid[waveY].slice(shift), ...grid[waveY].slice(0, shift)];
+        }
+      }
+
+      document.getElementById('canvas').textContent = grid.map(r => r.join('')).join('\n');
+      time += 0.0075;
+      requestAnimationFrame(render);
+    }
+
+    render();
+  </script>
+</body>
+</html>
