@@ -161,6 +161,13 @@
       apply();
     };
 
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !e.target.matches('input, textarea')) {
+        e.preventDefault();
+        btnFill.click();
+      }
+    });
+
     document.body.appendChild(w);
   }
 
