@@ -2,6 +2,110 @@
 (function() {
   let flipX = false;
   let filled = false;
+  let popupDismissed = false;
+
+  function showHotkeyPopup() {
+    const popup = document.createElement('div');
+    popup.className = 'hotkey-popup';
+    popup.innerHTML = `
+      <div class="hotkey-popup-content">
+        <div class="hotkey-row"><kbd>Space</kbd><span>tile view</span></div>
+        <div class="hotkey-row"><kbd>M</kbd><span>mirror</span></div>
+        <div class="hotkey-hint">press any key to dismiss</div>
+      </div>
+    `;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .hotkey-popup {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10001;
+        animation: popupIn 0.4s ease-out;
+      }
+      .hotkey-popup.fade-out {
+        animation: popupOut 0.3s ease-in forwards;
+      }
+      @keyframes popupIn {
+        from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+      @keyframes popupOut {
+        from { opacity: 1; transform: translateX(-50%) translateY(0); }
+        to { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      }
+      .hotkey-popup-content {
+        background: rgba(8, 8, 8, 0.92);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid #1a1a1a;
+        border-radius: 6px;
+        padding: 1.25rem 1.5rem;
+        min-width: 160px;
+      }
+      .hotkey-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        margin-bottom: 0.6rem;
+      }
+      .hotkey-row:last-of-type {
+        margin-bottom: 0;
+      }
+      .hotkey-row kbd {
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid #2a2a2a;
+        border-radius: 3px;
+        padding: 0.2rem 0.5rem;
+        color: #888;
+        min-width: 3rem;
+        text-align: center;
+      }
+      .hotkey-row span {
+        font-size: 0.65rem;
+        color: #444;
+        letter-spacing: 0.05em;
+      }
+      .hotkey-hint {
+        margin-top: 0.9rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid #1a1a1a;
+        font-size: 0.55rem;
+        color: #333;
+        text-align: center;
+        letter-spacing: 0.1em;
+      }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(popup);
+
+    function dismiss() {
+      if (popupDismissed) return;
+      popupDismissed = true;
+      popup.classList.add('fade-out');
+      setTimeout(() => popup.remove(), 300);
+      document.removeEventListener('keydown', dismissHandler);
+      document.removeEventListener('click', dismiss);
+    }
+
+    function dismissHandler(e) {
+      dismiss();
+    }
+
+    // Auto-dismiss after 4 seconds
+    setTimeout(dismiss, 4000);
+
+    // Dismiss on any key or click
+    setTimeout(() => {
+      document.addEventListener('keydown', dismissHandler, { once: true });
+      document.addEventListener('click', dismiss, { once: true });
+    }, 100);
+  }
 
   function apply() {
     const main = document.querySelector('main');
@@ -162,13 +266,21 @@
     };
 
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Space' && !e.target.matches('input, textarea')) {
+      if (e.target.matches('input, textarea')) return;
+
+      if (e.code === 'Space') {
         e.preventDefault();
         btnFill.click();
+      } else if (e.code === 'KeyM') {
+        e.preventDefault();
+        btnFlip.click();
       }
     });
 
     document.body.appendChild(w);
+
+    // Show hotkey popup on exhibit entry
+    setTimeout(showHotkeyPopup, 300);
   }
 
   if (document.readyState === 'loading') {
